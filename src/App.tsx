@@ -50,6 +50,7 @@ export default function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [extractedText, setExtractedText] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [quizTopic, setQuizTopic] = useState('');
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -132,6 +133,7 @@ export default function App() {
         body: formData,
       });
       const { text } = await textRes.json();
+      setExtractedText(text);
 
       // 2. Call Gemini from frontend
       const response = await ai.models.generateContent({
@@ -156,17 +158,21 @@ export default function App() {
     }
   };
 
-  const handleGenerateQuiz = async () => {
-    if (!quizTopic.trim() || isLoading) return;
+  const handleGenerateQuiz = async (fromText?: string) => {
+    if ((!quizTopic.trim() && !fromText) || isLoading) return;
     setIsLoading(true);
     setQuiz(null);
     setQuizAnswers([]);
     setQuizSubmitted(false);
 
     try {
+      const prompt = fromText 
+        ? `Generate a multiple choice quiz based on the following content. Return exactly 5 questions.\n\nContent: ${fromText}`
+        : `Generate a multiple choice quiz about ${quizTopic}. Return exactly 5 questions.`;
+
       const response = await ai.models.generateContent({
         model: modelName,
-        contents: `Generate a multiple choice quiz about ${quizTopic}. Return exactly 5 questions.`,
+        contents: prompt,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -194,6 +200,7 @@ export default function App() {
       const quizData = JSON.parse(response.text || '{}');
       setQuiz(quizData);
       setQuizAnswers(new Array(quizData.questions.length).fill(-1));
+      setActiveTab('quiz');
 
       // Save quiz to backend
       fetch('/api/quizzes/save', {
@@ -416,7 +423,17 @@ export default function App() {
                           <CheckCircle2 className="text-emerald-500" size={20} />
                           Summary Generated
                         </h3>
-                        <button className="text-xs font-medium text-indigo-600 hover:underline">Copy to Clipboard</button>
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => handleGenerateQuiz(extractedText || undefined)}
+                            disabled={isLoading}
+                            className="text-xs font-semibold px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors flex items-center gap-2"
+                          >
+                            <BrainCircuit size={14} />
+                            Generate Quiz from Slides
+                          </button>
+                          <button className="text-xs font-medium text-indigo-600 hover:underline">Copy to Clipboard</button>
+                        </div>
                       </div>
                       <div className="prose prose-indigo max-w-none">
                         <ReactMarkdown>{summary}</ReactMarkdown>
@@ -447,7 +464,7 @@ export default function App() {
                         className="flex-1 bg-[#F1F3F4] border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                       />
                       <button 
-                        onClick={handleGenerateQuiz}
+                        onClick={() => handleGenerateQuiz()}
                         disabled={!quizTopic.trim() || isLoading}
                         className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-2"
                       >
