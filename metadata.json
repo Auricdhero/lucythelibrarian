@@ -1,0 +1,5 @@
+{
+  "name": "Lucy - AI Library Assistant",
+  "description": "An academic AI agent for research, assignment help, slide summarization, and quiz generation, accessible via web and Telegram.",
+  "requestFramePermissions": []
+}
